@@ -28,7 +28,7 @@ Gemini-RAG/
 
 ## 🚀 Quick Start
 
-### Step 1: Setup (First Time Only)
+### Step 1: Initial Setup (First Time Only)
 
 **Option A: Using the setup script (Recommended)**
 
@@ -88,25 +88,166 @@ source activate_venv.sh
 source .venv/bin/activate
 ```
 
-### Step 4: Run the Demo Scripts
+---
 
-From the **Gemini-RAG** directory:
+## 🎯 Step-by-Step Demo Flow
+
+Follow these steps in order to see the difference between a basic agent (no RAG) and a RAG-enabled agent.
+
+### Part 1: The Basic Agent (Baseline)
+
+First, let's establish a baseline. We're going to use the raw `google-genai` SDK to run a simple agent.
+
+#### The Code
+
+Take a look at `app/sdk_agent.py`. It's a minimal implementation that:
+- Instantiates a `genai.Client()`
+- Enables the `google_search` tool
+- That's it. **No RAG.**
+
+#### Running the Basic Agent
+
+**Using Make:**
+```bash
+make test-agent
+```
+
+**Or directly:**
+```bash
+python app/sdk_agent.py
+```
+
+#### Test 1: General Question (Should Work)
+
+Let's ask it a general question that Google Search can answer:
+
+```
+> What is the stock price of Google?
+```
+
+It should answer correctly using Google Search to find the current price.
+
+#### Test 2: Story-Specific Question (Should Fail)
+
+Now, let's ask a question it doesn't know how to answer. It requires the agent to have read our Republic Day story:
+
+```
+> When did India become a republic?
+```
+
+Or:
+
+```
+> Who was the first President of India?
+```
+
+**Expected Result:** The model will either:
+- Fail to answer correctly
+- Hallucinate (make up an answer)
+- Say it doesn't know
+
+This demonstrates that **without RAG, the agent has no knowledge of our custom content**.
+
+Type `quit` or `exit` to exit the agent.
+
+---
+
+### Part 2: Setting Up File Search Store (RAG)
+
+Now let's set up RAG so the agent can answer questions about our story.
+
+#### Step 1: Check Environment Setup
 
 ```bash
-# Step 1: Check environment setup
 python demoscript/step1_setup.py
+```
 
-# Step 2: Initialize Gemini client
+**What it does:**
+- Loads environment variables from `.env` file
+- Verifies that all required configuration is present
+- Displays the configuration status
+
+**Expected output:**
+```
+✓ GEMINI_API_KEY: ******************** (loaded)
+✓ STORE_NAME: demo-file-store
+✓ MODEL: gemini-2.5-flash
+✓ UPLOAD_PATH: data
+```
+
+#### Step 2: Initialize Gemini Client
+
+```bash
 python demoscript/step2_init_client.py
+```
 
-# Step 3: Create the file search store
+**What it does:**
+- Initializes the Gemini API client
+- Tests the connection by listing existing stores
+- Verifies credentials are working
+
+**Expected output:**
+```
+✓ Client initialized successfully
+  Found X existing store(s)
+```
+
+#### Step 3: Create File Search Store
+
+```bash
 python demoscript/step3_manage_store.py
+```
 
-# Step 4: Upload files from data/ folder
+**What it does:**
+- Lists all existing file search stores
+- Creates a new store if it doesn't exist
+- Displays store information
+
+**Expected output:**
+```
+✓ Successfully created store:
+  Name: fileSearchStores/...
+  Display Name: demo-file-store
+```
+
+#### Step 4: Upload Files to Store
+
+```bash
 python demoscript/step4_upload_files.py
+```
 
-# Step 5: Query the store (tests RAG functionality)
+**What it does:**
+- Finds files in the `data/` directory
+- Uploads each file to the file search store
+- Extracts metadata (title, author, abstract) using Gemini
+- Handles duplicate detection and replacement
+
+**Expected output:**
+```
+Uploading story.md for metadata extraction...
+Title: Republic Day: A Celebration of Democracy
+Author: ...
+Abstract: ...
+✓ story.md successfully uploaded and indexed
+```
+
+#### Step 5: Query the Store (Verify RAG Works)
+
+```bash
 python demoscript/step5_query_store.py
+```
+
+**What it does:**
+- Queries the file search store with example questions
+- Demonstrates RAG functionality
+- Shows how the File Search Tool retrieves relevant information
+
+**Expected output:**
+```
+Question: When did India become a republic?
+
+Response:
+India became a republic on January 26, 1950...
 ```
 
 **Or run all steps at once:**
@@ -120,6 +261,63 @@ python demoscript/run_all.py
 ```bash
 make run-all
 ```
+
+---
+
+### Part 3: The RAG Agent (With File Search Store)
+
+Now let's test the RAG-enabled agent that uses the File Search Store.
+
+#### The Code
+
+Take a look at `app/sdk_rag_agent.py`. It:
+- Instantiates a `genai.Client()`
+- Retrieves the File Search Store we created
+- Attaches the File Search Tool to the agent
+- **Now has RAG capabilities!**
+
+#### Running the RAG Agent
+
+**Using Make:**
+```bash
+make test-rag-agent
+```
+
+**Or directly:**
+```bash
+python app/sdk_rag_agent.py
+```
+
+#### Test: Story-Specific Questions (Should Work!)
+
+Now ask the same questions that failed before:
+
+```
+> When did India become a republic?
+```
+
+**Expected Result:** The agent should answer correctly using information from your uploaded story!
+
+```
+> Who was the first President of India?
+```
+
+**Expected Result:** Correct answer from the story!
+
+```
+> What are the key features of the Republic Day parade?
+```
+
+**Expected Result:** Detailed answer based on the uploaded content!
+
+**Notice the difference:**
+- ✅ The RAG agent can answer questions about your custom content
+- ✅ It shows grounding information (chunks found from File Search)
+- ✅ Answers are accurate and based on your uploaded story
+
+Type `quit` or `exit` to exit the agent.
+
+---
 
 ## 📝 What Each Script Does
 
@@ -136,12 +334,6 @@ The demo uses a **Republic Day story** (26 January) as the test content:
 - **File:** `data/story.md`
 - **Topic:** India's Republic Day celebration
 - **Content:** History, Constitution, traditions, and significance
-
-The queries in step5 will ask questions like:
-- "When did India become a republic?"
-- "Who was the first President of India?"
-- "What are the key features of the Republic Day parade?"
-- "What values does Republic Day celebrate?"
 
 ## 🔧 Requirements
 
@@ -163,11 +355,13 @@ All dependencies are listed in `requirements.txt`.
 Using Make:
 
 ```bash
-make help      # Show available commands
-make setup     # Create venv and install dependencies
-make install   # Install dependencies (venv must be activated)
-make run-all   # Run all demo steps
-make clean     # Remove virtual environment
+make help          # Show available commands
+make setup         # Create venv and install dependencies
+make install       # Install dependencies (venv must be activated)
+make run-all       # Run all demo steps
+make test-agent    # Run basic agent (Google Search only)
+make test-rag-agent # Run RAG agent (File Search Store)
+make clean         # Remove virtual environment
 ```
 
 ## ⚠️ Important Notes
@@ -205,13 +399,15 @@ make clean     # Remove virtual environment
 
 After running all steps successfully, you should see:
 
-1. ✓ Environment configured
-2. ✓ Client initialized
-3. ✓ Store created
-4. ✓ File uploaded and indexed
-5. ✓ Queries returning answers based on the Republic Day story
+1. ✓ Basic agent works for general questions but fails on story questions
+2. ✓ Environment configured
+3. ✓ Client initialized
+4. ✓ Store created
+5. ✓ File uploaded and indexed
+6. ✓ Queries returning answers based on the Republic Day story
+7. ✓ RAG agent successfully answers story-specific questions!
 
-The File Search Store will use RAG to retrieve relevant information from your uploaded story and answer questions accurately!
+The File Search Store enables RAG to retrieve relevant information from your uploaded story and answer questions accurately!
 
 ## 🔄 Clean Setup
 
